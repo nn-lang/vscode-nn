@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { MessageType } from "vscode-languageserver";
+import { MessageType } from "vscode-languageserver/node";
 import { createLspConnection } from "./connection";
 
 const DEFAULT_LOG_LEVEL = MessageType.Info;

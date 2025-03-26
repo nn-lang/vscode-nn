@@ -12,5 +12,5 @@
         "type": "commonjs"
     },
     "sourceMaps": true,
-    "exclude": ["out"]
+    "exclude": ["out", "node_modules"]
 }

@@ -1,4 +1,4 @@
-import { DocumentSymbolParams, SemanticTokens, SemanticTokensBuilder, SymbolKind } from "vscode-languageserver";
+import { DocumentSymbolParams, SemanticTokens, SemanticTokensBuilder, SymbolKind } from "vscode-languageserver/node";
 import { LspContext } from "../types";
 
 import {

@@ -1,1 +1,17 @@
+# packages
+.yarn
+node_modules
+
+# IDEs and editors
+compose-dev.yaml
+
+# Build result
 out
+*.py
+*.onnx
+
+# Auto-generated files
+./src/ohm/*bundle*
+
+# windsurf rules
+.windsurfrules
