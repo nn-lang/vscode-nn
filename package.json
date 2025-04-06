@@ -1,15 +1,23 @@
 {
   "name": "nn",
-  "version": "0.1.3",
+  "version": "0.1.1",
   "description": "",
   "author": "SieR-VR",
   "license": "MIT",
+  "icon": "assets/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nn-lang/vscode-nn.git"
+  },
   "private": true,
   "engines": {
-    "vscode": "^1.22.0",
+    "vscode": "^1.93.0",
     "node": ">=18.0.0"
   },
   "publisher": "nn-lang",
+  "activationEvents": [
+    "onLanguage:nn"
+  ],
   "contributes": {
     "languages": [
       {
