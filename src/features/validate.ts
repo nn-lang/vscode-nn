@@ -26,7 +26,7 @@ export async function validateTextDocument(
     return;
   }
 
-  const source = SourceFile.parse(textDocument.getText(), textDocument.uri);
+  const source = SourceFile.parse(textDocument.getText(), textDocument.uri, context.parser);
   const checkContext = TypeChecker.check(source);
 
   const diagnostics: Diagnostic[] = [];

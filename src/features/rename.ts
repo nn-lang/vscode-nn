@@ -34,7 +34,7 @@ export async function rename(
     return null;
   }
 
-  const source = SourceFile.parse(textDocument.getText(), textDocument.uri);
+  const source = SourceFile.parse(textDocument.getText(), textDocument.uri, context.parser);
   const checkContext = TypeChecker.check(source);
 
   const renamePosition = textDocument.offsetAt(params.position);

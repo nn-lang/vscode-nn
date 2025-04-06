@@ -24,6 +24,6 @@ export default [
     }
   },
   {
-    ignores: ["**/out/**", "**/bindings/**/*.js", "**/scripts/**/*.js"],
+    ignores: ["**/out/**", "**/*.js"],
   }
 ];

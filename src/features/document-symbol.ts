@@ -22,7 +22,7 @@ export function documentSymbol(
     return [];
   }
 
-  const source = SourceFile.parse(document.getText(), params.textDocument.uri);
+  const source = SourceFile.parse(document.getText(), params.textDocument.uri, context.parser);
   const checkContext = TypeChecker.check(source);
  
   const declarationSymbols = Object.values(checkContext.scope.declarations)

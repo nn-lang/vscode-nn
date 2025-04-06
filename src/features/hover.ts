@@ -33,7 +33,7 @@ export async function hover(
     return null;
   }
 
-  const source = SourceFile.parse(document.getText(), params.textDocument.uri);
+  const source = SourceFile.parse(document.getText(), params.textDocument.uri, context.parser);
 
   const checkContext = TypeChecker.check(source);
   const hoverPosition = document.offsetAt(params.position);

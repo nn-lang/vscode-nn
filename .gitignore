@@ -9,6 +9,7 @@ compose-dev.yaml
 out
 *.py
 *.onnx
+*.vsix
 
 # Auto-generated files
 ./src/ohm/*bundle*

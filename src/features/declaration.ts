@@ -25,7 +25,7 @@ export async function declaration(
     return null;
   }
 
-  const source = SourceFile.parse(document.getText(), params.textDocument.uri);
+  const source = SourceFile.parse(document.getText(), params.textDocument.uri, context.parser);
 
   const checkContext = TypeChecker.check(source);
   const requestedPosition = document.offsetAt(params.position);

@@ -14,10 +14,8 @@ let client: LanguageClient;
 
 export async function activate(context: ExtensionContext) {
   const serverModule = context.asAbsolutePath(
-    path.join("out", "src", "cli.js")
+    path.join("out", "cli.js")
   );
-
-  console.log(serverModule);
 
   const serverOptions: ServerOptions = {
     run: { module: serverModule, transport: TransportKind.ipc },

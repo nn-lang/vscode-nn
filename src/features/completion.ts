@@ -21,7 +21,7 @@ export async function completion(
     return null;
   }
 
-  const source = SourceFile.parse(textDocument.getText(), textDocument.uri);
+  const source = SourceFile.parse(textDocument.getText(), textDocument.uri, context.parser);
   const checkContext = TypeChecker.check(source);
 
   const completionPosition = textDocument.offsetAt(params.position);
