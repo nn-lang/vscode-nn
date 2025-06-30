@@ -3,13 +3,15 @@ import {
   InitializeResult,
   TextDocumentSyncKind,
 } from "vscode-languageserver/node";
-import { Language, Parser } from "web-tree-sitter";
+import { Language, Parser as TreeSitterParser } from "web-tree-sitter";
+import { Workspace } from "@nn-lang/nn-language";
 import _language from "@nn-lang/nn-tree-sitter/tree-sitter-nn.wasm";
 
 import * as fs from "fs";
 import * as path from "path";
 
 import { LspContext } from "../types";
+import { LSPFileSystem } from "../utils/lsp-file-system";
 
 export async function initialize(
   params: InitializeParams,
@@ -18,13 +20,27 @@ export async function initialize(
   context.initializeParams = params;
   context.workspaceRoots = params.workspaceFolders?.map((f) => f.uri) ?? [];
 
-  await Parser.init();
+  await TreeSitterParser.init();
   const language = await Language.load(
     fs.readFileSync(path.join(__dirname, _language))
   );
-  const parser = new Parser();
+  const parser = new TreeSitterParser();
   parser.setLanguage(language);
-  context.parser = parser;
+  context.parser = parser as any;
+
+  context.lspFileSystem = new LSPFileSystem(context.logger!);
+  context.workspaces = {};
+
+  const tasks = (params.workspaceFolders ?? []).map(async (folder) => {
+    context.workspaces![folder.uri] = await Workspace.create(
+      [],
+      { cwd: folder.uri, fileSystem: context.lspFileSystem! },
+      context.parser!
+    );
+  });
+  await Promise.all(tasks);
+
+  console.log(context.workspaces);
 
   const initializeResult: InitializeResult = {
     capabilities: {

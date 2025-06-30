@@ -41,6 +41,10 @@ if (opts.logLevel) {
   }
 }
 
+process.on('uncaughtException', (error) => {
+  console.error('[nn-lang] Uncaught Error', error);
+})
+
 createLspConnection({
   showMessageLevel: logLevel,
 }).listen();

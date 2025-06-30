@@ -16,8 +16,8 @@ import {
   isSizeDeclList,
   Node,
   nodeOnPosition,
-  SourceFile,
   travel,
+  Workspace,
 } from "@nn-lang/nn-language";
 import { TypeChecker } from "@nn-lang/nn-type-checker";
 
@@ -29,150 +29,187 @@ export async function rename(
   context: LspContext,
   _token: CancellationToken
 ): Promise<WorkspaceEdit | null> {
-  const textDocument = context.documents.get(params.textDocument.uri);
-  if (!textDocument) {
+  const document = context.documents.get(params.textDocument.uri);
+  if (!document) {
     return null;
   }
 
-  const source = SourceFile.parse(textDocument.getText(), textDocument.uri, context.parser);
-  const checkContext = TypeChecker.check(source);
+  const workspaceUri = Object.keys(context.workspaces).find((uri) =>
+    document.uri.startsWith(uri)
+  );
+  if (!workspaceUri) {
+    return null;
+  }
 
-  const renamePosition = textDocument.offsetAt(params.position);
+  const workspace = context.workspaces[workspaceUri];
+  if (!(document.uri in workspace.sources)) {
+    await Workspace.addFiles([document.uri], workspace);
+  }
+
+  const source = workspace.sources.get(document.uri);
+  if (!source) {
+    return null;
+  }
+
+  const checkContext = TypeChecker.check(workspace);
+  const fileScope = checkContext.scope.files[document.uri];
+
+  const renamePosition = document.offsetAt(params.position);
 
   const processed =
-    processRename(source.tree, renamePosition, isIdentifierSizeNode, (node) => {
-      const declaration = nodeOnPosition(
-        source.tree,
-        node.position.pos,
-        isDeclaration
-      );
-      if (!declaration) return null;
-
-      const scope = checkContext.scope.declarations[declaration.name.value];
-      if (!scope) return null;
-
-      const size = scope.sizes[node.ident.value];
-
-      return [...size.nodes].map((node) => ({
-        range: {
-          start: textDocument.positionAt(node.position.pos),
-          end: textDocument.positionAt(node.position.end),
-        },
-        newText: params.newName,
-      }));
-    }) ||
     processRename(
-      source.tree,
+      source.declarations,
       renamePosition,
-      isIdentifierExpression,
+      isIdentifierSizeNode,
       (node) => {
         const declaration = nodeOnPosition(
-          source.tree,
+          source.declarations,
           node.position.pos,
           isDeclaration
         );
         if (!declaration) return null;
 
-        const scope = checkContext.scope.declarations[declaration.name.value];
+        const scope = fileScope.declarations[declaration.name.value];
+        if (!scope) return null;
+
+        const size = scope.sizes[node.ident.value];
+
+        return [...size.nodes].map((node) => ({
+          range: {
+            start: document.positionAt(node.position.pos),
+            end: document.positionAt(node.position.end),
+          },
+          newText: params.newName,
+        }));
+      }
+    ) ||
+    processRename(
+      source.declarations,
+      renamePosition,
+      isIdentifierExpression,
+      (node) => {
+        const declaration = nodeOnPosition(
+          source.declarations,
+          node.position.pos,
+          isDeclaration
+        );
+        if (!declaration) return null;
+
+        const scope = fileScope.declarations[declaration.name.value];
         if (!scope) return null;
 
         const value = scope.values[node.ident.value];
 
         return [...value.nodes].map((node) => ({
           range: {
-            start: textDocument.positionAt(node.position.pos),
-            end: textDocument.positionAt(node.position.end),
+            start: document.positionAt(node.position.pos),
+            end: document.positionAt(node.position.end),
           },
           newText: params.newName,
         }));
       }
     ) ||
-    processRename(source.tree, renamePosition, isSizeDeclList, (node) => {
-      const actual = nodeOnPosition(node, renamePosition, isIdentifier);
-      if (!actual) return null;
+    processRename(
+      source.declarations,
+      renamePosition,
+      isSizeDeclList,
+      (node) => {
+        const actual = nodeOnPosition(node, renamePosition, isIdentifier);
+        if (!actual) return null;
 
-      const declaration = nodeOnPosition(
-        source.tree,
-        node.position.pos,
-        isDeclaration
-      );
-      if (!declaration) return null;
+        const declaration = nodeOnPosition(
+          source.declarations,
+          node.position.pos,
+          isDeclaration
+        );
+        if (!declaration) return null;
 
-      const scope = checkContext.scope.declarations[declaration.name.value];
-      if (!scope) return null;
+        const scope = fileScope.declarations[declaration.name.value];
+        if (!scope) return null;
 
-      const size = scope.sizes[actual.value];
-      if (!size) return null;
+        const size = scope.sizes[actual.value];
+        if (!size) return null;
 
-      return [...size.nodes].map((node) => ({
-        range: {
-          start: textDocument.positionAt(node.position.pos),
-          end: textDocument.positionAt(node.position.end),
-        },
-        newText: params.newName,
-      }));
-    }) ||
-    processRename(source.tree, renamePosition, isCallExpression, (node) => {
-      const actual = between(
-        node.callee.position.pos,
-        node.callee.position.end
-      )(renamePosition)
-        ? node.callee
-        : null;
-      if (!actual) return null;
-
-      const original = checkContext.scope.flows[actual.value].declaration.node;
-      const calls = travel<CallExpression>(source.tree, (node) => {
-        return isCallExpression(node) && node.callee.value === actual.value;
-      });
-
-      return [
-        {
+        return [...size.nodes].map((node) => ({
           range: {
-            start: textDocument.positionAt(original.name.position.pos),
-            end: textDocument.positionAt(original.name.position.end),
+            start: document.positionAt(node.position.pos),
+            end: document.positionAt(node.position.end),
           },
           newText: params.newName,
-        },
-        ...calls.map((node) => ({
-          range: {
-            start: textDocument.positionAt(node.callee.position.pos),
-            end: textDocument.positionAt(node.callee.position.end),
-          },
-          newText: params.newName,
-        })),
-      ];
-    }) ||
-    processRename(source.tree, renamePosition, isDeclaration, (node) => {
-      const actual = between(
-        node.name.position.pos,
-        node.name.position.end
-      )(renamePosition)
-        ? node.name
-        : null;
-      if (!actual) return null;
+        }));
+      }
+    ) ||
+    processRename(
+      source.declarations,
+      renamePosition,
+      isCallExpression,
+      (node) => {
+        const actual = between(
+          node.callee.position.pos,
+          node.callee.position.end
+        )(renamePosition)
+          ? node.callee
+          : null;
+        if (!actual) return null;
 
-      const calls = travel<CallExpression>(source.tree, (node) => {
-        return isCallExpression(node) && node.callee.value === actual.value;
-      });
+        const original = fileScope.flows[actual.value].declaration.node;
+        const calls = travel<CallExpression>(source.declarations, (node) => {
+          return isCallExpression(node) && node.callee.value === actual.value;
+        });
 
-      return [
-        {
-          range: {
-            start: textDocument.positionAt(actual.position.pos),
-            end: textDocument.positionAt(actual.position.end),
+        return [
+          {
+            range: {
+              start: document.positionAt(original.name.position.pos),
+              end: document.positionAt(original.name.position.end),
+            },
+            newText: params.newName,
           },
-          newText: params.newName,
-        },
-        ...calls.map((node) => ({
-          range: {
-            start: textDocument.positionAt(node.callee.position.pos),
-            end: textDocument.positionAt(node.callee.position.end),
+          ...calls.map((node) => ({
+            range: {
+              start: document.positionAt(node.callee.position.pos),
+              end: document.positionAt(node.callee.position.end),
+            },
+            newText: params.newName,
+          })),
+        ];
+      }
+    ) ||
+    processRename(
+      source.declarations,
+      renamePosition,
+      isDeclaration,
+      (node) => {
+        const actual = between(
+          node.name.position.pos,
+          node.name.position.end
+        )(renamePosition)
+          ? node.name
+          : null;
+        if (!actual) return null;
+
+        const calls = travel<CallExpression>(source.declarations, (node) => {
+          return isCallExpression(node) && node.callee.value === actual.value;
+        });
+
+        return [
+          {
+            range: {
+              start: document.positionAt(actual.position.pos),
+              end: document.positionAt(actual.position.end),
+            },
+            newText: params.newName,
           },
-          newText: params.newName,
-        })),
-      ];
-    });
+          ...calls.map((node) => ({
+            range: {
+              start: document.positionAt(node.callee.position.pos),
+              end: document.positionAt(node.callee.position.end),
+            },
+            newText: params.newName,
+          })),
+        ];
+      }
+    );
 
   if (!processed) return null;
 
@@ -180,7 +217,7 @@ export async function rename(
 
   return {
     changes: {
-      [textDocument.uri]: changes,
+      [document.uri]: changes,
     },
   };
 }

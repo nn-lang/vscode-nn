@@ -1,7 +1,7 @@
 import { Diagnostic } from "vscode-languageserver/node";
 import { URI } from "vscode-uri";
 
-import { SourceFile } from "@nn-lang/nn-language";
+import { Workspace } from "@nn-lang/nn-language";
 
 import { TypeChecker } from "@nn-lang/nn-type-checker";
 
@@ -21,19 +21,36 @@ export async function validateTextDocument(
   textDocumentUri: URI,
   context: LspContext
 ): Promise<void> {
-  const textDocument = context.documents.get(textDocumentUri.toString());
-  if (!textDocument) {
+  const document = context.documents.get(textDocumentUri.toString());
+  if (!document) {
     return;
   }
 
-  const source = SourceFile.parse(textDocument.getText(), textDocument.uri, context.parser);
-  const checkContext = TypeChecker.check(source);
+  const workspaceUri = Object.keys(context.workspaces).find((uri) =>
+    document.uri.startsWith(uri)
+  );
+  if (!workspaceUri) {
+    return;
+  }
 
+  const workspace = context.workspaces[workspaceUri];
+  if (!(document.uri in workspace.sources)) {
+    await Workspace.addFiles([document.uri], workspace);
+  }
+
+  const sourceFile = workspace.sources.get(document.uri);
+  if (!sourceFile) {
+    return;
+  }
+  const checkContext = TypeChecker.check(workspace);
   const diagnostics: Diagnostic[] = [];
 
-  [...source.diagnostics, ...checkContext.diagnostics].forEach((diagnostic) => {
-    const startPos = textDocument.positionAt(diagnostic.position.pos);
-    const endPos = textDocument.positionAt(diagnostic.position.end);
+  const tcDiagnostics = checkContext.diagnostics
+    .filter(({ source }) => source === sourceFile);
+
+  [...sourceFile.diagnostics, ...tcDiagnostics].forEach((diagnostic) => {
+    const startPos = document.positionAt(diagnostic.position.pos);
+    const endPos = document.positionAt(diagnostic.position.end);
 
     diagnostics.push({
       range: {
@@ -47,7 +64,7 @@ export async function validateTextDocument(
   });
 
   context.client.sendDiagnostics({
-    uri: textDocument.uri,
+    uri: document.uri,
     diagnostics,
   });
 }

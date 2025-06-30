@@ -5,43 +5,62 @@ import {
   SymbolKind,
 } from "vscode-languageserver/node";
 
-import { SourceFile } from "@nn-lang/nn-language";
+import { Workspace } from "@nn-lang/nn-language";
 import { Size, TypeChecker, Value } from "@nn-lang/nn-type-checker";
 
 import { TextDocument } from "vscode-languageserver-textdocument";
 
 import { LspContext } from "../types";
 
-export function documentSymbol(
+export async function documentSymbol(
   params: DocumentSymbolParams,
   context: LspContext,
   _token: CancellationToken
-): DocumentSymbol[] {
+): Promise<DocumentSymbol[]> {
   const document = context.documents.get(params.textDocument.uri);
   if (!document) {
     return [];
   }
 
-  const source = SourceFile.parse(document.getText(), params.textDocument.uri, context.parser);
-  const checkContext = TypeChecker.check(source);
- 
-  const declarationSymbols = Object.values(checkContext.scope.declarations)
-    .map<DocumentSymbol>(scope => ({
-      name: scope.declaration,
-      kind: SymbolKind.Function,
-      range: {
-        start: document.positionAt(scope.node.position.pos),
-        end: document.positionAt(scope.node.position.end),
-      },
-      selectionRange: {
-        start: document.positionAt(scope.node.name.position.pos),
-        end: document.positionAt(scope.node.name.position.end),
-      },
-      children: [
-        ...Object.values(scope.values).flatMap(value => valueSymbols(document, value)),
-        ...Object.values(scope.sizes).flatMap(size => sizeSymbols(document, size)),
-      ],
-    }))
+  const workspaceUri = Object.keys(context.workspaces).find((uri) =>
+    document.uri.startsWith(uri)
+  );
+  if (!workspaceUri) {
+    return [];
+  }
+
+  const workspace = context.workspaces[workspaceUri];
+  if (!(document.uri in workspace.sources)) {
+    await Workspace.addFiles([document.uri], workspace);
+  }
+
+  const checkContext = TypeChecker.check(workspace);
+  const fileScope = checkContext.scope.files[document.uri];
+
+  console.log(fileScope);
+
+  const declarationSymbols = Object.values(
+    fileScope.declarations
+  ).map<DocumentSymbol>((scope) => ({
+    name: scope.declaration,
+    kind: SymbolKind.Function,
+    range: {
+      start: document.positionAt(scope.node.position.pos),
+      end: document.positionAt(scope.node.position.end),
+    },
+    selectionRange: {
+      start: document.positionAt(scope.node.name.position.pos),
+      end: document.positionAt(scope.node.name.position.end),
+    },
+    children: [
+      ...Object.values(scope.values).flatMap((value) =>
+        valueSymbols(document, value)
+      ),
+      ...Object.values(scope.sizes).flatMap((size) =>
+        sizeSymbols(document, size)
+      ),
+    ],
+  }));
 
   return declarationSymbols;
 }
@@ -59,7 +78,7 @@ function valueSymbols(document: TextDocument, value: Value): DocumentSymbol {
       end: document.positionAt(value.first.position.end),
     },
     children: [],
-  }
+  };
 }
 
 function sizeSymbols(document: TextDocument, size: Size): DocumentSymbol {

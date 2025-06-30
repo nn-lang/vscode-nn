@@ -10,7 +10,7 @@ import {
   isIdentifierExpression,
   isIdentifierSizeNode,
   nodeOnPosition,
-  SourceFile,
+  Workspace,
 } from "@nn-lang/nn-language";
 
 import { TypeChecker } from "@nn-lang/nn-type-checker";
@@ -25,19 +25,36 @@ export async function declaration(
     return null;
   }
 
-  const source = SourceFile.parse(document.getText(), params.textDocument.uri, context.parser);
+  const workspaceUri = Object.keys(context.workspaces).find((uri) =>
+    document.uri.startsWith(uri)
+  );
+  if (!workspaceUri) {
+    return null;
+  }
 
-  const checkContext = TypeChecker.check(source);
+  const workspace = context.workspaces[workspaceUri];
+  if (!(document.uri in workspace.sources)) {
+    await Workspace.addFiles([document.uri], workspace);
+  }
+
+  const source = workspace.sources.get(document.uri);
+  if (!source) {
+    return null;
+  }
+
+  const checkContext = TypeChecker.check(workspace);
+  const fileScope = checkContext.scope.files[document.uri];
+
   const requestedPosition = document.offsetAt(params.position);
 
   const identNode = nodeOnPosition(
-    source.tree,
+    source.declarations,
     requestedPosition,
     (node) => isIdentifierExpression(node) || isIdentifierSizeNode(node)
   );
 
   const declarationNode = nodeOnPosition(
-    source.tree,
+    source.declarations,
     requestedPosition,
     isDeclaration
   );
@@ -47,7 +64,7 @@ export async function declaration(
   }
 
   const declarationScope =
-    checkContext.scope.declarations[declarationNode.name.value];
+    fileScope.declarations[declarationNode.name.value];
 
   if (isIdentifierSizeNode(identNode)) {
     const size = declarationScope.sizes[identNode.ident.value];

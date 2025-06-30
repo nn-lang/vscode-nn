@@ -49,11 +49,13 @@
     "clean": "rm -rf ./out"
   },
   "dependencies": {
-    "@nn-lang/nn-language": "^0.1.11",
-    "@nn-lang/nn-tree-sitter": "^0.1.14",
-    "@nn-lang/nn-type-checker": "^0.1.10",
+    "@nn-lang/nn-language": "^0.1.15",
+    "@nn-lang/nn-tree-sitter": "^0.1.17",
+    "@nn-lang/nn-type-checker": "^0.1.13",
     "commander": "^12.1.0",
-    "ts-features": "^1.3.5",
+    "common-path-prefix": "^3.0.0",
+    "tree-sitter": "^0.25.0",
+    "ts-features": "^2.0.0",
     "vscode-languageclient": "^9.0.1",
     "vscode-languageserver": "^9.0.1",
     "vscode-languageserver-textdocument": "^1.0.12",
